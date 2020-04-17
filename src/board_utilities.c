@@ -12,8 +12,8 @@
 
 #define DIR 4
 
-const int dirx[DIR] = {-1, 0, 0, 1};
-const int diry[DIR] = {0, 1, -1, 0};
+static const int dirx[DIR] = {-1, 0, 0, 1};
+static const int diry[DIR] = {0, 1, -1, 0};
 
 field_t **alloc_board(uint32_t width, uint32_t height) {
     uint32_t i, j;
@@ -175,7 +175,7 @@ static void dfs(field_t **b, field_t *cur_rep, uint32_t player_id,
     b[y][x].rep = cur_rep;
     b[y][x].visited = true;
 
-    for (i = 0; i <= DIR; ++i) {
+    for (i = 0; i < DIR; ++i) {
         cordx = x + dirx[i];
         cordy = y + diry[i];
 
