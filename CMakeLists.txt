@@ -21,6 +21,10 @@ set(CMAKE_C_FLAGS "-std=c11 -Wall -Wextra")
 
 # Wskazujemy pliki źródłowe.
 set(SOURCE_FILES
+    src/player.c
+    src/player.h
+    src/board_utilities.c
+    src/board_utilities.h
     src/gamma.c
     src/gamma.h
     src/gamma_test.c)

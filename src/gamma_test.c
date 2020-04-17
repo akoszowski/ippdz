@@ -1,5 +1,5 @@
 /** @file
- * Przykładowe użycie silnika gry gamma
+ * Przykładowe użycie silnika gry gamma.
  *
  * @author Marcin Peczarski <marpe@mimuw.edu.pl>
  * @copyright Uniwersytet Warszawski
