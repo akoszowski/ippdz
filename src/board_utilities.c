@@ -10,9 +10,18 @@
 #include <stdlib.h>
 #include "board_utilities.h"
 
+/**
+ * Number of directions.
+ */
 #define DIR 4
 
+/**
+ * Array representing x-coordinate vectors.
+ */
 static const int dirx[DIR] = {-1, 0, 0, 1};
+/**
+ * Array representing y-coordinate vectors.
+ */
 static const int diry[DIR] = {0, 1, -1, 0};
 
 field_t **alloc_board(uint32_t width, uint32_t height) {

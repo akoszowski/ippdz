@@ -17,7 +17,7 @@ player_t** alloc_players(uint32_t players_num) {
     return NULL;
   }
 
-  for (i = 0; i <=players_num; ++i) {
+  for (i = 0; i <= players_num; ++i) {
     p[i] = malloc(sizeof(struct player));
     if (p[i] == NULL) {
       for (--i; i > 0; --i) {

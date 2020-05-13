@@ -15,13 +15,13 @@
  * Structure storing state of the gamma game.
  */
 struct gamma {
-    uint32_t width;                //< width of the board
-    uint32_t height;               //< height of the board
-    uint32_t players_num;          //< number of players in game
-    uint32_t max_areas;            //< maximal number of areas one can occupy
-    uint64_t globally_free_fields; //< number of free fields on board
-    field_t **board;               //< pointer to structure representing board
-    player_t **players;            //< pointer to array storing state of players
+    uint32_t width;                ///< width of the board
+    uint32_t height;               ///< height of the board
+    uint32_t players_num;          ///< number of players in game
+    uint32_t max_areas;            ///< maximal number of areas one can occupy
+    uint64_t globally_free_fields; ///< number of free fields on board
+    field_t **board;               ///< pointer to structure representing board
+    player_t **players;            ///< pointer to array storing state of players
 };
 
 /**@brief Checks preconditions.
@@ -129,8 +129,8 @@ bool gamma_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
         return false;
     }
 
-    // in case of new are is created,
-    // checking whether max_areas limit is exceeded
+    // In case of new are is created,
+    // checking whether max_areas limit is exceeded.
     if (!adjacent_field(g->board, player_id, g->width, g->height, x, y)) {
         if (cur_player->busy_areas + 1 > g->max_areas) {
             return false;
@@ -170,7 +170,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
         return false;
     }
 
-    // splitting prev_owner areas, determining number of newly emerged areas
+    // Splitting prev_owner areas, determining number of newly emerged areas.
     areas_num = prev_owner->busy_areas - 1;
     areas_num += divide_adj(g->board, prev_owner_id, g->width, g->height, x, y);
 
@@ -182,7 +182,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
 
     g->board[y][x].owner_id = 0;
 
-    // checking whether cur_player can execute a move
+    // Checking whether cur_player can execute a move.
     if (!gamma_move(g, player_id, x, y)) {
         union_adj(g->board, prev_owner_id, g->width, g->height, x, y);
         g->board[y][x].owner_id = prev_owner_id;
@@ -246,10 +246,10 @@ char *gamma_board(gamma_t *g) {
 
     bool dots = false;
     bool spaces = false;
-    uint32_t cell_width = g->players_num / 10 + 1;
-    uint32_t row_width = cell_width * g->width + 1;
+    uint64_t cell_width = g->players_num / 10 + 1;
+    uint64_t row_width = cell_width * g->width + 1;
     uint64_t cells = row_width * g->height;
-    uint32_t i = 0, j = 0, k = 0, x = 0, y = 0, owner_id = 0;
+    uint64_t i = 0, j = 0, k = 0, x = 0, y = 0, owner_id = 0;
 
     char *b = malloc(sizeof(char) * (cells + 1));
     if (b == NULL) {

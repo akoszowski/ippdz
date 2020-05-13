@@ -16,14 +16,12 @@
 /**
  * Structure representing a field on gamma game board.
  */
-typedef struct field field_t;
-
-struct field {
-    uint32_t owner_id; //< field owner identifier
-    uint32_t rank;     //< rank of field necessary for find&union operations
-    field_t *rep;      //< representative of field in terms of find&union sets
-    bool visited;      //< attribute used by dfs algorithm
-};
+typedef struct field {
+    uint32_t owner_id;  ///< field owner identifier
+    uint32_t rank;      ///< rank of field necessary for find&union operations
+    struct field *rep;  ///< representative of field in terms of find&union sets
+    bool visited;       ///< attribute used by dfs algorithm
+} field_t;
 
 /** @brief Creates a structure storing gamma game board.
  * Allocates memory for a new two-dimensional array consisting of fields
@@ -45,7 +43,7 @@ void delete_board(field_t **b, uint32_t height);
 
 /**@brief Checks whether given field is on board.
  * Checks whether field (@p x, @p y) is on board which width is @p width
- * and height @height.
+ * and height @p height.
  * @param[in] width        – width of the board,
  * @param[in] height       – height of the board,
  * @param[in] x            – number of column of checked field,

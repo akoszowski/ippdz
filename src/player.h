@@ -16,11 +16,11 @@
  * Structure representing single player in gamma game.
  */
 typedef struct player {
-   bool in_game;         //< depending on that if player can execute some move
-   bool golden_used;     //< depending on that if player used his golden move
-   uint32_t busy_areas;  //< number of occupied areas
-   uint64_t busy_fields; //< number of occupied fields
-   uint64_t free_fields; //< number of fields which player can still capture
+   bool in_game;         ///< depending on that if player can execute some move
+   bool golden_used;     ///< depending on that if player used his golden move
+   uint32_t busy_areas;  ///< number of occupied areas
+   uint64_t busy_fields; ///< number of occupied fields
+   uint64_t free_fields; ///< number of fields which player can still capture
  } player_t;
 
 /** @brief Creates an array storing state of players.

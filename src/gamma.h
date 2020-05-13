@@ -54,7 +54,7 @@ void gamma_delete(gamma_t *g);
 bool gamma_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y);
 
 /** @brief Executes golden move.
- * Places the piece of player @player_id on field (@p x, @p y), occupied by
+ * Places the piece of player @p player_id on field (@p x, @p y), occupied by
  * the another player, removing his piece.
  * @param[in,out] g      – pointer to structure storing the state of game,
  * @param[in] player_id  – number of player, that is positive not bigger than
