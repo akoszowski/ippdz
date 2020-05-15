@@ -35,6 +35,12 @@ field_t **alloc_board(uint32_t width, uint32_t height) {
     for (i = 0; i < height; ++i) {
         b[i] = malloc(sizeof(struct field) * width);
         if (b[i] == NULL) {
+            if (i == 0) {
+                free(b);
+
+                return NULL;
+            }
+
             for (--i; i > 0; --i) {
                 free(b[i]);
             }
@@ -102,6 +108,8 @@ bool adjacent_field(field_t **b, uint32_t player_id,
 
 void set_up_field(field_t *f, uint32_t player_id) {
     f->owner_id = player_id;
+    f->rep = f;
+    f->rank = 0;
 }
 
 field_t *find_rep(field_t *f) {
@@ -157,7 +165,7 @@ static void set_up_visited(field_t **b, uint32_t width, uint32_t height) {
 
     for (i = 0; i < height; ++i) {
         for (j = 0; j < width; ++j) {
-            if (params_ok(width, height, i, j)) {
+            if (params_ok(width, height, j, i)) {
                 b[i][j].visited = false;
             }
         }

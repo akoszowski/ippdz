@@ -27,9 +27,12 @@ set(SOURCE_FILES
     src/board_utilities.h
     src/gamma.c
     src/gamma.h
-    src/gamma_test.c)
+        src/gamma_parser.h
+        src/gamma_parser.c
+        src/gamma_main.c)
 
 # Wskazujemy plik wykonywalny.
+#add_executable(gamma ${SOURCE_FILES} src/gamma_test.c)
 add_executable(gamma ${SOURCE_FILES})
 
 # Dodajemy obsługę Doxygena: sprawdzamy, czy jest zainstalowany i jeśli tak to:
