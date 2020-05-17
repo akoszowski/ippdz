@@ -9,6 +9,12 @@ Uwaga: aktualna treść zadania znajduje się w [Moodle'u](https://moodle.mimuw.
 
 Tegoroczne duże zadanie polega na zaimplementowaniu gry gammma.
 
-TODO
+Tutaj właśnie znajduje się dokumentacja propozycji implemenatcji tejże gry.
+
+Implementacja opiera się na silniku gry - realizującym całą logikę.
+
+Ponadto użytkownik może korzystać z jednego z dwóch trybów:
+    - interaktywnego,
+    - wsadowego.
 
 */
