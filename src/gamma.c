@@ -25,7 +25,7 @@ struct gamma {
 };
 
 /**@brief Checks preconditions.
- * Checks whether parameters @p g or @p player_id are both correct.
+ * Checks whether parameters @p g and @p player_id are both correct.
  * @param[in] g           – pointer to the structure storing game,
  * @param player_id       – player identifier.
  * @return Value @p true if both parameters are correct; @p false otherwise.
@@ -239,6 +239,22 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player_id) {
     return true;
 }
 
+/**
+ * Gives gamma game board cell width
+ * @param players_num   - number of players.
+ * @return Value @p counter - board cell width.
+ */
+static uint32_t get_cell_width(uint32_t players_num) {
+    int counter = 0;
+
+    while (players_num > 0) {
+        counter++;
+        players_num /= 10;
+    }
+
+    return counter;
+}
+
 char *gamma_board(gamma_t *g) {
     if (g == NULL) {
         return NULL;
@@ -246,8 +262,8 @@ char *gamma_board(gamma_t *g) {
 
     bool dots = false;
     bool spaces = false;
-    uint64_t cell_width = g->players_num / 10 + 1;
-    uint64_t row_width = cell_width * g->width + 1;
+    uint32_t cell_width = get_cell_width(g->players_num);
+    uint64_t row_width = g->width * cell_width + 1;
     uint64_t cells = row_width * g->height;
     uint64_t i = 0, j = 0, k = 0, x = 0, y = 0, owner_id = 0;
 

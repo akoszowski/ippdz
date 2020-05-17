@@ -1,23 +1,47 @@
-//
-// Created by antoniusz on 14.05.2020.
-//
+/**@file
+ * Implementation of gamma game input parser.
+ *
+ * @author Antoni Koszowski <a.koszowski@students.mimuw.edu.pl>
+ * @copyright
+ * @date 17.05.2020
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include "gamma_parser.h"
+#include "gamma_interactive.h"
 #include "gamma.h"
 
+/**
+ * Maximal number of considered parameters.
+ */
 #define MAX_PARAMS 4
 
+/**
+ * Pointer to structure storing gamma game.
+ */
 static gamma_t *gamma_game= NULL;
 
-static int count_lines = 0;
+/**
+ * Number of currently parsed input line.
+ */
+static uint64_t cur_line = 0;
 
+/**
+ * Array storing whitespaces ASCII representation.
+ */
 static const char *delim = " \t\v\r\f\n";
+/**
+ * Array storing meaningful command signs.
+ */
 static const char *proper_signs = "IBmgbfqp";
 
+/**@brief Gives status of game.
+ * Gives information whether game is active or not.
+ * @return Value @p true if game is active, @p false otherwise.
+ */
 static bool is_active() {
     if (gamma_game != NULL) {
         return true;
@@ -26,6 +50,11 @@ static bool is_active() {
     }
 }
 
+/**@brief Checks for comment line.
+ * Gives information whether parsed @p input_line is a comment.
+ * @param input_line - checked input line.
+ * @return Value @p true if input line is a comment, @p false otherwise.
+ */
 static bool comment_line(char *input_line) {
     if (input_line[0] == '#') {
         return true;
@@ -34,17 +63,32 @@ static bool comment_line(char *input_line) {
     return false;
 }
 
+/**@brief Checks for empty line.
+ * Gives information whether @p input_line is empty.
+ * @param input_line - checked input line.
+ * @return Value @p if input line is empty, @p false otherwise.
+ */
 static bool empty_line(char *input_line) {
     return input_line[0] == '\n';
 }
 
+/**@brief Checks for '\n' ending.
+ * Gives information whether @p input_line has '\n' ending.
+ * @param input_line  - checked input line.
+ * @return Value @p true if input line has '\n' ending, @p false otherwise.
+ */
 static bool endl_ending(char *input_line) {
     size_t i = strlen(input_line) - 1;
 
     return input_line[i] == '\n';
 }
 
-// pobieramy pierwszy znak + sprawdzamy czy się zgadza
+/**@brief Returns first sign of input line.
+ * Returns first sign of @p input_line,
+ * and gives information about its propriety.
+ * @param input_line - input line which first sign is returned.
+ * @return First sign of input line - if it is proper, 0 otherwise.
+ */
 static char get_first_sign(char *input_line) {
     size_t  i;
     bool is_proper = false;
@@ -68,6 +112,12 @@ static char get_first_sign(char *input_line) {
     return 0;
 }
 
+/**@brief Checks whether given signs are printable.
+ * Checks whether @p token contains printable sign (ASCII 33 - 255).
+ * @param token - array of signs.
+ * @return Value @p true if there is some sign out of range,
+ *         @p false otherwise.
+ */
 static bool out_of_range(char *token) {
     size_t i;
 
@@ -80,9 +130,15 @@ static bool out_of_range(char *token) {
     return false;
 }
 
-// parsujemy parametry - muszą to być liczby dodatnie !!!
-// może to być zero,
-// trzeba jeszcze uważać na duuże liczby !!!
+/**@brief Converts correct char parameters into unsigned integer.
+ * If given @p token contains transformable parameter
+ * it is converted into unsigned integer pointed by @p param.
+ * otherwise gives information that it is illegal.
+ * @param[in] token - array containing char parameter,
+ * @param[in] param - pointer where value of converted chars is stored.
+ * @return Value @p true if char parameter was converted properly,
+ *         @p false otherwise.
+ */
 static bool got_param(char *token, uint32_t *param) {
     if (out_of_range(token) || token[0] == '-') {
         return false;
@@ -99,6 +155,11 @@ static bool got_param(char *token, uint32_t *param) {
     return false;
 }
 
+/**@brief Checks if first parameter is equal zero.
+ * Gives information whether first parameter from @p params is equal zero.
+ * @param params - array containing parameters/
+ * @return  Value @p true if first parameter is zero, @p false otherwise.
+ */
 static bool param_zero(uint32_t params[MAX_PARAMS]) {
     int i;
 
@@ -111,33 +172,53 @@ static bool param_zero(uint32_t params[MAX_PARAMS]) {
     return false;
 }
 
-static void launch_mode(char first_sign, uint32_t params[], uint32_t p_number) {
+/**@brief Activates choosen mode.
+ * If given command is proper, basing on @p first_sign, @p params,
+ * @p p_number and such action is possible appropriate mode is activated.
+ * @param first_sign - first sign parameter,
+ * @param params     - next parameters,
+ * @param p_number   - number of parameters.
+ */
+static void choose_mode(char first_sign, uint32_t params[], uint32_t p_number) {
     if (p_number != 4) {
-        fprintf(stderr, "ERROR %d\n", count_lines);
+        fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
     }
     else if (param_zero(params)) {
-        fprintf(stderr, "ERROR %d\n", count_lines);
+        fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
     }
 
     if (first_sign == 'I') {
-        printf("Przechodzimy w tryb interaktywny\n");
+        gamma_game = gamma_new(params[0], params[1], params[2], params[3]);
+        if (gamma_game == NULL) {
+            fprintf(stderr, "ERROR %lu\n", cur_line);
+        }
+        else {
+            launch_interactive(gamma_game, params[0], params[1], params[2]);
+        }
     }
     else if (first_sign == 'B') {
         gamma_game = gamma_new(params[0], params[1], params[2], params[3]);
         if (gamma_game == NULL) {
-            fprintf(stderr, "ERROR %d\n", count_lines);
+            fprintf(stderr, "ERROR %lu\n", cur_line);
         }
         else {
-            printf("OK %d\n", count_lines);
+            printf("OK %lu\n", cur_line);
         }
     }
 }
 
+/**@brief Chooses command option.
+ * Checks whether given command is appropriate, basing on information from
+ * @p first_sign, @p params, @p p_number, if so it is executed.
+ * @param first_sign - first sign parameter,
+ * @param params     - next parameters,
+ * @param p_number   - number of parameters.
+ */
 static void choose_option(char first_sign, uint32_t params[], uint32_t p_number) {
     if (!is_active()) {
-        launch_mode(first_sign, params, p_number);
+        choose_mode(first_sign, params, p_number);
     }
     else {
         if (first_sign == 'm' && p_number == 3) {
@@ -158,7 +239,7 @@ static void choose_option(char first_sign, uint32_t params[], uint32_t p_number)
         else if (first_sign == 'p' && p_number == 0) {
             char *board = gamma_board(gamma_game);
             if (board == NULL) {
-                printf("plansza się znulowałą !!!\n");
+                exit(1);
             }
             else {
                 printf("%s", board);
@@ -166,47 +247,44 @@ static void choose_option(char first_sign, uint32_t params[], uint32_t p_number)
             }
         }
         else {
-            fprintf(stderr, "ERROR %d\n", count_lines);
+            fprintf(stderr, "ERROR %lu\n", cur_line);
         }
     }
 }
 
-// wyabstrahować jeszcze potem wypisywanie komunikatów
 void parse_input(char *input_line) {
     uint32_t p_number = 0, params[MAX_PARAMS];
     char first_sign, *token;
 
-    count_lines++;
+    cur_line++;
 
-    // sprawdzamy warunki wstępne
+    // Checking preconditions.
     if (comment_line(input_line) || empty_line(input_line)) {
         return;
     }
 
     first_sign = get_first_sign(input_line);
-    // no po prostu nie kończy się endlem !!!
+
     if (!endl_ending(input_line)) {
-        fprintf(stderr, "ERROR %d\n", count_lines);
+        fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
     }
     else if (first_sign == 0) {
-        fprintf(stderr, "ERROR %d\n", count_lines);
+        fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
     }
 
     token = strtok(input_line, delim);
 
-    // pierwszy znak jest ok, teraz sprawdzamy poprawność parametrów
-
+    // Checking parameters.
     while ((token = strtok(0, delim))) {
         if (p_number == 4) {
-            fprintf(stderr, "ERROR %d\n", count_lines);
+            fprintf(stderr, "ERROR %lu\n", cur_line);
             return;
         }
 
-        // ale to może być gracz zero!!!
         if (!(got_param(token, &params[p_number++]))) {
-            fprintf(stderr, "ERROR %d\n", count_lines);
+            fprintf(stderr, "ERROR %lu\n", cur_line);
             return;
         }
     }
