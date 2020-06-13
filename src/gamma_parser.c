@@ -22,7 +22,7 @@
 /**
  * Pointer to structure storing gamma game.
  */
-static gamma_t *gamma_game= NULL;
+static gamma_t *gamma_game = NULL;
 
 /**
  * Number of currently parsed input line.
@@ -90,10 +90,11 @@ static bool endl_ending(char *input_line) {
  * @return First sign of input line - if it is proper, 0 otherwise.
  */
 static char get_first_sign(char *input_line) {
-    size_t  i;
+    size_t i, len;
     bool is_proper = false;
 
-    for (i = 0; i < strlen(proper_signs) && !is_proper; ++i) {
+    len = strlen(proper_signs);
+    for (i = 0; i < len && !is_proper; ++i) {
         if (input_line[0] == proper_signs[i]) {
             is_proper = true;
         }
@@ -103,7 +104,8 @@ static char get_first_sign(char *input_line) {
         return 0;
     }
 
-    for (i = 0; i < strlen(delim); ++i) {
+    len = strlen(delim);
+    for (i = 0; i < len; ++i) {
         if (input_line[1] == delim[i]) {
             return input_line[0];
         }
@@ -119,10 +121,10 @@ static char get_first_sign(char *input_line) {
  *         @p false otherwise.
  */
 static bool out_of_range(char *token) {
-    size_t i;
+    size_t i, len = strlen(token);
 
-    for (i = 0; i < strlen(token); ++i) {
-        if ((unsigned char)token[i] < 32) {
+    for (i = 0; i < len; ++i) {
+        if ((unsigned char) token[i] < '0' || (unsigned char) token[i] > '9') {
             return true;
         }
     }
@@ -147,8 +149,8 @@ static bool got_param(char *token, uint32_t *param) {
     char *ending;
     uint64_t cur_num = strtoul(token, &ending, 10);
 
-    if (strlen(ending) == 0 && cur_num <= UINT32_MAX) {
-        *param = (uint32_t)cur_num;
+    if (ending[0] == 0 && cur_num <= UINT32_MAX) {
+        *param = (uint32_t) cur_num;
         return true;
     }
 
@@ -183,8 +185,7 @@ static void choose_mode(char first_sign, uint32_t params[], uint32_t p_number) {
     if (p_number != 4) {
         fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
-    }
-    else if (param_zero(params)) {
+    } else if (param_zero(params)) {
         fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
     }
@@ -193,17 +194,14 @@ static void choose_mode(char first_sign, uint32_t params[], uint32_t p_number) {
         gamma_game = gamma_new(params[0], params[1], params[2], params[3]);
         if (gamma_game == NULL) {
             fprintf(stderr, "ERROR %lu\n", cur_line);
-        }
-        else {
+        } else {
             launch_interactive(gamma_game, params[0], params[1], params[2]);
         }
-    }
-    else if (first_sign == 'B') {
+    } else if (first_sign == 'B') {
         gamma_game = gamma_new(params[0], params[1], params[2], params[3]);
         if (gamma_game == NULL) {
             fprintf(stderr, "ERROR %lu\n", cur_line);
-        }
-        else {
+        } else {
             printf("OK %lu\n", cur_line);
         }
     }
@@ -216,37 +214,32 @@ static void choose_mode(char first_sign, uint32_t params[], uint32_t p_number) {
  * @param params     - next parameters,
  * @param p_number   - number of parameters.
  */
-static void choose_option(char first_sign, uint32_t params[], uint32_t p_number) {
+static void
+choose_option(char first_sign, uint32_t params[], uint32_t p_number) {
     if (!is_active()) {
         choose_mode(first_sign, params, p_number);
-    }
-    else {
+    } else {
         if (first_sign == 'm' && p_number == 3) {
-            printf("%d\n", gamma_move(gamma_game, params[0], params[1], params[2]));
-        }
-        else if (first_sign == 'g' && p_number == 3) {
-            printf("%d\n", gamma_golden_move(gamma_game, params[0], params[1], params[2]));
-        }
-        else if (first_sign == 'b' && p_number == 1) {
+            printf("%d\n",
+                   gamma_move(gamma_game, params[0], params[1], params[2]));
+        } else if (first_sign == 'g' && p_number == 3) {
+            printf("%d\n", gamma_golden_move(gamma_game, params[0], params[1],
+                                             params[2]));
+        } else if (first_sign == 'b' && p_number == 1) {
             printf("%lu\n", gamma_busy_fields(gamma_game, params[0]));
-        }
-        else if (first_sign == 'f' && p_number == 1) {
+        } else if (first_sign == 'f' && p_number == 1) {
             printf("%lu\n", gamma_free_fields(gamma_game, params[0]));
-        }
-        else  if (first_sign == 'q' && p_number == 1) {
+        } else if (first_sign == 'q' && p_number == 1) {
             printf("%d\n", gamma_golden_possible(gamma_game, params[0]));
-        }
-        else if (first_sign == 'p' && p_number == 0) {
+        } else if (first_sign == 'p' && p_number == 0) {
             char *board = gamma_board(gamma_game);
             if (board == NULL) {
                 exit(1);
-            }
-            else {
+            } else {
                 printf("%s", board);
                 free(board);
             }
-        }
-        else {
+        } else {
             fprintf(stderr, "ERROR %lu\n", cur_line);
         }
     }
@@ -268,8 +261,7 @@ void parse_input(char *input_line) {
     if (!endl_ending(input_line)) {
         fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
-    }
-    else if (first_sign == 0) {
+    } else if (first_sign == 0) {
         fprintf(stderr, "ERROR %lu\n", cur_line);
         return;
     }

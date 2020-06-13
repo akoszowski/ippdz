@@ -24,7 +24,6 @@ static void free_buffer() {
     free(buffer);
 }
 
-
 /**@brief Main function of gamma game.
  * Main function of gamma game, realising simulation.
  * @return Value @p 0 if game was run successfully.

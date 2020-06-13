@@ -7,6 +7,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include "player.h"
 #include "board_utilities.h"
 #include "gamma.h"
@@ -81,7 +82,7 @@ gamma_t *gamma_new(uint32_t width, uint32_t height,
     g->height = height;
     g->players_num = players_num;
     g->max_areas = max_areas;
-    g->globally_free_fields = width * height;
+    g->globally_free_fields = (uint64_t) width * height;
 
     g->board = alloc_board(width, height);
     if (g->board == NULL) {
@@ -153,10 +154,85 @@ bool gamma_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
     return true;
 }
 
+/**@brief Checks whether given player has stock areas.
+ * Checks whether player @p player_id in game pointed by @param g
+ * has stock areas that can be captured.
+ * @param g          - pointer to the game structure,
+ * @param player_id  - player id.
+ * @return Value @p true if player has stock areas, @p false otherwise.
+ */
+static bool has_stock_areas(gamma_t *g, uint32_t player_id) {
+    player_t *cur_player = g->players[player_id];
+
+    if (cur_player->busy_areas < g->max_areas) {
+        return true;
+    }
+
+    return false;
+}
+
+/**@brief Checks whether golden_move prerequisites are met.
+ * Checks whether in game pointed by @p g, golden move
+ * prerequisites are met for player @p player_id.
+ * @param g           - pointer to the game structure,
+ * @param player_id   - player id.
+ * @return Value @p true if prerequisites are met, @p false otherwise.
+ */
+static bool golden_conditions(gamma_t *g, uint32_t player_id) {
+    if (!preconditions(g, player_id)) {
+        return false;
+    }
+
+    player_t *cur_player = g->players[player_id];
+
+    update_player_state(g, cur_player, player_id);
+
+    if (cur_player->golden_used) {
+        return false;
+    } else if (cur_player->busy_fields + g->globally_free_fields ==
+               (uint64_t) g->width * g->height) {
+        return false;
+    }
+
+    return true;
+}
+
+bool check_golden_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
+    if (!golden_conditions(g, player_id)) {
+        return false;
+    }
+
+    uint32_t prev_owner_id = field_owner(&g->board[y][x]), areas_num = 0;
+    player_t *prev_owner = g->players[prev_owner_id];
+
+    if (prev_owner_id == player_id || prev_owner_id == 0) {
+        return false;
+    }
+
+    // Splitting prev_owner areas, determining number of newly emerged areas.
+    areas_num = prev_owner->busy_areas - 1;
+    areas_num += divide_adj(g->board, prev_owner_id, g->width, g->height, x, y);
+    union_adj(g->board, prev_owner_id, g->width, g->height, x, y);
+
+    if (areas_num > g->max_areas) {
+        return false;
+    }
+
+    if (has_stock_areas(g, player_id)) {
+        return true;
+    } else if (adjacent_field(g->board, player_id, g->width, g->height, x, y)) {
+        return true;
+    }
+
+    return false;
+}
+
 bool gamma_golden_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
     if (!preconditions(g, player_id)) {
         return false;
     } else if (!params_ok(g->width, g->height, x, y)) {
+        return false;
+    } else if (!check_golden_move(g, player_id, x, y)) {
         return false;
     }
 
@@ -164,21 +240,9 @@ bool gamma_golden_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
     player_t *prev_owner = g->players[prev_owner_id];
     player_t *cur_player = g->players[player_id];
 
-    if (!gamma_golden_possible(g, player_id)) {
-        return false;
-    } else if (prev_owner_id == 0 || prev_owner_id == player_id) {
-        return false;
-    }
-
     // Splitting prev_owner areas, determining number of newly emerged areas.
     areas_num = prev_owner->busy_areas - 1;
     areas_num += divide_adj(g->board, prev_owner_id, g->width, g->height, x, y);
-
-    if (areas_num > g->max_areas) {
-        union_adj(g->board, prev_owner_id, g->width, g->height, x, y);
-
-        return false;
-    }
 
     g->board[y][x].owner_id = 0;
 
@@ -196,6 +260,27 @@ bool gamma_golden_move(gamma_t *g, uint32_t player_id, uint32_t x, uint32_t y) {
     g->globally_free_fields++;
 
     return true;
+}
+
+bool gamma_golden_possible(gamma_t *g, uint32_t player_id) {
+    if (!preconditions(g, player_id)) {
+        return false;
+    } else if (!golden_conditions(g, player_id)) {
+        return false;
+    } else if (has_stock_areas(g, player_id)) {
+        return true;
+    }
+
+    uint32_t i, j;
+    for (i = 0; i < g->height; ++i) {
+        for (j = 0; j < g->width; ++j) {
+            if (check_golden_move(g, player_id, j, i)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 uint64_t gamma_busy_fields(gamma_t *g, uint32_t player_id) {
@@ -220,31 +305,12 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player_id) {
     return cur_player->free_fields;
 }
 
-bool gamma_golden_possible(gamma_t *g, uint32_t player_id) {
-    if (!preconditions(g, player_id)) {
-        return false;
-    }
-
-    player_t *cur_player = g->players[player_id];
-
-    update_player_state(g, cur_player, player_id);
-
-    if (cur_player->golden_used || !cur_player->in_game) {
-        return false;
-    } else if (cur_player->busy_fields + g->globally_free_fields ==
-               g->width * g->height) {
-        return false;
-    }
-
-    return true;
-}
-
 /**
  * Gives gamma game board cell width
  * @param players_num   - number of players.
  * @return Value @p counter - board cell width.
  */
-static uint32_t get_cell_width(uint32_t players_num) {
+uint32_t get_cell_width(uint32_t players_num) {
     int counter = 0;
 
     while (players_num > 0) {
@@ -252,7 +318,50 @@ static uint32_t get_cell_width(uint32_t players_num) {
         players_num /= 10;
     }
 
+    if (counter > 1) {
+        counter++;
+    }
+
     return counter;
+}
+
+char *get_cell_content(gamma_t *g, uint32_t x, uint32_t y) {
+    uint32_t cell_width = get_cell_width(g->players_num);
+    uint32_t owner_id = 0, i = 0;
+    bool dots = false, spaces = false;
+
+    char *cell_content = malloc(sizeof(char) * (cell_width + 1));
+    if (cell_content == NULL) {
+        exit(1);
+    }
+
+    owner_id = field_owner(&g->board[y][x]);
+    if (owner_id == 0) {
+        dots = true;
+    }
+
+    for (i = cell_width; i > 0; --i) {
+        if (i == cell_width && i > 1) {
+            cell_content[i - 1] = ' ';
+        } else if (dots) {
+            cell_content[i - 1] = '.';
+            dots = false;
+            spaces = true;
+        } else if (spaces) {
+            cell_content[i - 1] = ' ';
+        } else {
+            cell_content[i - 1] = '0' + owner_id % 10;
+            owner_id /= 10;
+
+            if (owner_id == 0) {
+                spaces = true;
+            }
+        }
+    }
+
+    cell_content[cell_width] = '\0';
+
+    return cell_content;
 }
 
 char *gamma_board(gamma_t *g) {
@@ -260,16 +369,15 @@ char *gamma_board(gamma_t *g) {
         return NULL;
     }
 
-    bool dots = false;
-    bool spaces = false;
     uint32_t cell_width = get_cell_width(g->players_num);
-    uint64_t row_width = g->width * cell_width + 1;
-    uint64_t cells = row_width * g->height;
-    uint64_t i = 0, j = 0, k = 0, x = 0, y = 0, owner_id = 0;
+    uint64_t row_width = (uint64_t) g->width * cell_width + 1;
+    uint64_t cells = (uint64_t) row_width * g->height;
+    uint64_t i = 0, k = 0, x = 0, y = 0;
 
+    char *cell_content;
     char *b = malloc(sizeof(char) * (cells + 1));
     if (b == NULL) {
-        return NULL;
+        exit(1);
     }
 
     while (i < cells) {
@@ -281,33 +389,13 @@ char *gamma_board(gamma_t *g) {
             x = 0;
             i++;
         } else {
-            dots = false;
-            spaces = false;
-            owner_id = field_owner(&g->board[y][x]);
-
-            if (owner_id == 0) {
-                dots = true;
-            }
-
-            for (j = cell_width; j > 0; --j) {
-                if (dots) {
-                    b[k + j - 1] = '.';
-                    dots = false;
-                    spaces = true;
-                } else if (spaces) {
-                    b[k + j - 1] = ' ';
-                } else {
-                    b[k + j - 1] = '0' + owner_id % 10;
-                    owner_id /= 10;
-
-                    if (owner_id == 0) {
-                        spaces = true;
-                    }
-                }
-            }
+            cell_content = get_cell_content(g, x, y);
+            strcpy(&b[k], cell_content);
 
             x++;
             i += cell_width;
+
+            free(cell_content);
         }
     }
 

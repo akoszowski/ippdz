@@ -18,17 +18,41 @@
  * Macro checking for keyboard combination with CTRL and given key.
  */
 #define CTRL_KEY(k) ((k) & 0x1f)
+/**
+ * Onscreen information height.
+ */
+#define INFO_HEIGHT 12
+/**
+ * Onscreen information width.
+ */
+#define INFO_WIDTH 24
 
 /**
  * Structure representing current configuration of terminal.
  */
 struct terminal {
+    bool tips;                   ///< controlling whether tips are on/off
     uint64_t cursor_x;           ///< cursor x-coordinate position
     uint64_t cursor_y;           ///< cursor y-coordinate position
     uint32_t screen_rows;        ///< number of screen rows
     uint32_t screen_cols;        ///< number of screen columns
     struct termios orig_config;  ///< original terminal configuration
 };
+
+/**
+ * Prompt when tips are off.
+ */
+const char *tips_off = "\nPress t to see game tips";
+
+/**
+ * Prompt when tips are off.
+ */
+const char *tips_on = "\nPress t to hide game tips"
+                      "\n\x1b[44m \x1b[0m: cursor position"
+                      "\nPress space to make a standard move"
+                      "\nPress g or G to make a golden move"
+                      "\nPress c or C to skip your move"
+                      "\nPress CTRL-D to end up the game";
 
 /**
  * Structure representing current parameters of gamma game.
@@ -59,7 +83,8 @@ enum key {
     ARROW_DOWN,         ///< arrow down
     N_MOVE,             ///< normal move - pressing space
     G_MOVE,             ///< golden move - pressing G or g
-    RESIGN              ///< player resigning from move - pressing C or c
+    RESIGN,             ///< player resigning from move - pressing C or c
+    TIPS                ///< player folding/unfolding game tips - pressing t
 };
 
 /**
@@ -81,14 +106,18 @@ struct game_params g_ps;
  * Disables terminal raw mode.
  */
 static void disable_raw_mode() {
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &config.orig_config);
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &config.orig_config) == -1) {
+        exit(1);
+    }
 }
 
 /**
  * Enables terminal raw mode.
  */
 static void enable_raw_mode() {
-    tcgetattr(STDIN_FILENO, &config.orig_config);
+    if (tcgetattr(STDIN_FILENO, &config.orig_config) == -1) {
+        exit(1);
+    }
     atexit(disable_raw_mode);
 
     struct termios raw = config.orig_config;
@@ -96,7 +125,9 @@ static void enable_raw_mode() {
     raw.c_iflag &= ~(IXON);
     raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
 
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
+        exit(1);
+    }
 }
 
 /**
@@ -105,7 +136,9 @@ static void enable_raw_mode() {
 static void get_window_size() {
     struct winsize winsize;
 
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize) == -1) {
+        exit(1);
+    }
 
     config.screen_rows = winsize.ws_row;
     config.screen_cols = winsize.ws_col;
@@ -116,12 +149,15 @@ static void get_window_size() {
  * gamma game board can be screened.
  */
 static void check_window() {
-    if (config.screen_rows < g_ps.height || config.screen_cols < g_ps.width * g_ps.cell_width) {
+    if (config.screen_rows - INFO_HEIGHT < g_ps.height ||
+        config.screen_cols < INFO_WIDTH ||
+        config.screen_cols < g_ps.width * g_ps.cell_width) {
         printf("Unfortunately, size of your window is not big enough for given parameters.\n"
                "Try to enlarge the window or change game parameters !!!\n");
         exit(1);
     }
 }
+
 /**
  * Reads and interprets keyboard presses/ escape code sequences.
  * @return Character @p c converted if recognizable into enum.
@@ -141,23 +177,26 @@ static int read_key() {
 
         if (next[0] == '[') {
             switch (next[1]) {
-                case 'A': return ARROW_UP;
-                case 'B': return ARROW_DOWN;
-                case 'C': return ARROW_RIGHT;
-                case 'D': return ARROW_LEFT;
+                case 'A':
+                    return ARROW_UP;
+                case 'B':
+                    return ARROW_DOWN;
+                case 'C':
+                    return ARROW_RIGHT;
+                case 'D':
+                    return ARROW_LEFT;
             }
         }
 
         return '\x1b';
-    }
-    else if (c == ' ') {
+    } else if (c == ' ') {
         return N_MOVE;
-    }
-    else if (c == 'G' || c == 'g') {
+    } else if (c == 'G' || c == 'g') {
         return G_MOVE;
-    }
-    else if (c == 'C' || c == 'c') {
+    } else if (c == 'C' || c == 'c') {
         return RESIGN;
+    } else if (c == 't') {
+        return TIPS;
     }
 
     return c;
@@ -184,18 +223,20 @@ static void append(struct screen_buffer *content, const char *s, int len) {
 /**
  * Prints gamma game board into the terminal window.
  */
-static void print_board(){
+static void print_board() {
     char *board = gamma_board(gamma_game);
     if (board == NULL) {
         exit(1);
     }
 
+    // Clearing the screen.
     if (write(STDOUT_FILENO, "\x1b[2J", 4) == -1) {
-        exit(1);
     }
+    // Cursor to first row and column.
     if (write(STDOUT_FILENO, "\x1b[H", 3) == -1) {
         exit(1);
     }
+
     printf("%s", board);
 
     free(board);
@@ -210,9 +251,13 @@ static void print_results() {
     char buf[128];
     struct screen_buffer results = {NULL, 0};
 
+    snprintf(buf, sizeof(buf), "\n\x1b[4mGAMMA GAME SUMMARY:\x1b[0m\n"
+                               "\nPLAYER ID | BUSY_FIELDS\n");
+    append(&results, buf, strlen(buf));
+
     for (i = 1; i <= g_ps.players_num; ++i) {
         b_f = gamma_busy_fields(gamma_game, i);
-        snprintf(buf, sizeof(buf), "PLAYER %d %ld\n", i, b_f);
+        snprintf(buf, sizeof(buf), "PLAYER %d  | %ld\n", i, b_f);
 
         append(&results, buf, strlen(buf));
     }
@@ -262,7 +307,7 @@ static void update_params() {
     bool f_f = (gamma_free_fields(gamma_game, next_p) != 0);
     bool g_p = gamma_golden_possible(gamma_game, next_p);
 
-    while (!f_f && !g_p && counter > 0 ) {
+    while (!f_f && !g_p && counter > 0) {
         next_p = (next_p % g_ps.players_num) + 1;
         f_f = gamma_free_fields(gamma_game, next_p);
         g_p = gamma_golden_possible(gamma_game, next_p);
@@ -276,6 +321,9 @@ static void update_params() {
         if (write(STDOUT_FILENO, "\x1b[H", 3) == -1) {
             exit(1);
         }
+        if (write(STDOUT_FILENO, "\x1b[?25h", 6) == -1) {
+            exit(1);
+        }
 
         print_board();
         print_results();
@@ -283,8 +331,7 @@ static void update_params() {
         gamma_delete(gamma_game);
 
         exit(0);
-    }
-    else {
+    } else {
         g_ps.cur_player = next_p;
     }
 }
@@ -295,17 +342,28 @@ static void update_params() {
  * @param content       - printed information.
  */
 static void get_info(struct screen_buffer *content) {
-    char b[128];
+    char b[512];
     int c_p = g_ps.cur_player;
     int b_f = gamma_busy_fields(gamma_game, c_p);
     int f_f = gamma_free_fields(gamma_game, c_p);
 
-    snprintf(b, sizeof(b), "PLAYER %d %d %d", c_p, b_f, f_f);
+    snprintf(b, sizeof(b), "Current player:  %d\n"
+                           "Busy fields:     %d\n"
+                           "Free fields:     %d\n", c_p, b_f, f_f);
 
     append(content, b, strlen(b));
 
     if (gamma_golden_possible(gamma_game, c_p)) {
-        append(content, " G", 2);
+        snprintf(b, sizeof(b), "Golden move possible\n");
+    } else {
+        snprintf(b, sizeof(b), "Golden move not possible\n");
+    }
+    append(content, b, strlen(b));
+
+    if (!config.tips) {
+        append(content, tips_off, strlen(tips_off));
+    } else {
+        append(content, tips_on, strlen(tips_on));
     }
 }
 
@@ -315,10 +373,17 @@ static void get_info(struct screen_buffer *content) {
  * @param content   - ponter to screen buffer.
  */
 static void set_cursor(struct screen_buffer *content) {
-    char b[32];
-    snprintf(b, sizeof(b), "\x1b[%lu;%luH", config.cursor_y, config.cursor_x);
+    uint32_t x = config.cursor_x / g_ps.cell_width - 1;
+    uint32_t y = g_ps.height - config.cursor_y;
+
+    char b[128];
+    char *temp = get_cell_content(gamma_game, x, y);
+    snprintf(b, sizeof(b), "\x1b[%lu;%luH\x1b[44m%s\x1b[0m", config.cursor_y,
+             config.cursor_x - g_ps.cell_width + 1, temp);
 
     append(content, b, strlen(b));
+
+    free(temp);
 }
 
 /**
@@ -355,6 +420,9 @@ static void process_keypress() {
             if (write(STDOUT_FILENO, "\x1b[H", 3) == -1) {
                 exit(1);
             }
+            if (write(STDOUT_FILENO, "\x1b[?25h", 6) == -1) {
+                exit(1);
+            }
 
             print_board();
             print_results();
@@ -381,23 +449,10 @@ static void process_keypress() {
         case RESIGN:
             update_params();
             break;
+        case TIPS:
+            config.tips = !config.tips;
+            break;
     }
-}
-
-/**
- * Gives gamma game board cell width
- * @param players_num   - number of players.
- * @return Value @p counter - board cell width.
- */
-static int get_cell_width(uint32_t players_num) {
-    int counter = 0;
-
-    while (players_num > 0) {
-        counter++;
-        players_num /= 10;
-    }
-
-    return counter;
 }
 
 /**
@@ -416,6 +471,7 @@ void init(uint32_t width, uint32_t height, uint32_t players_num) {
 
     config.cursor_x = g_ps.cell_width;
     config.cursor_y = height;
+    config.tips = true;
 
     get_window_size();
 
@@ -433,9 +489,12 @@ void launch_interactive(gamma_t *game_ptr, uint32_t width, uint32_t height,
 
     init(width, height, players_num);
 
+    if (write(STDOUT_FILENO, "\x1b[?25l", 6) == -1) {
+        exit(1);
+    }
+
     while (1) {
         refresh_screen();
         process_keypress();
     }
-
 }

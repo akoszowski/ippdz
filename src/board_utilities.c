@@ -25,7 +25,7 @@ static const int dirx[DIR] = {-1, 0, 0, 1};
 static const int diry[DIR] = {0, 1, -1, 0};
 
 field_t **alloc_board(uint32_t width, uint32_t height) {
-    uint32_t i, j;
+    uint32_t i;
 
     field_t **b = malloc(sizeof(struct field *) * height);
     if (b == NULL) {
@@ -33,7 +33,7 @@ field_t **alloc_board(uint32_t width, uint32_t height) {
     }
 
     for (i = 0; i < height; ++i) {
-        b[i] = malloc(sizeof(struct field) * width);
+        b[i] = calloc(width, sizeof(struct field));
         if (b[i] == NULL) {
             if (i == 0) {
                 free(b);
@@ -48,13 +48,6 @@ field_t **alloc_board(uint32_t width, uint32_t height) {
             free(b);
 
             return NULL;
-        }
-
-        for (j = 0; j < width; ++j) {
-            b[i][j].owner_id = 0;
-            b[i][j].rank = 1;
-            b[i][j].rep = NULL;
-            b[i][j].visited = false;
         }
     }
 

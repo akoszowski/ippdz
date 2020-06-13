@@ -21,7 +21,7 @@
  * @param height        - game board height,
  * @param players_num   - number of players in game.
  */
-void launch_interactive(gamma_t *game_ptr,  uint32_t width, uint32_t height,
+void launch_interactive(gamma_t *game_ptr, uint32_t width, uint32_t height,
                         uint32_t players_num);
 
 #endif //GAMMA_GAMMA_INTERACTIVE_H
